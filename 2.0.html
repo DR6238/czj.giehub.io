@@ -1,0 +1,3020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能碳足迹监测平台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --secondary: #3498db;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --carbon-gradient: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background: var(--carbon-gradient);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: 80px 1fr;
+            grid-template-areas:
+                "sidebar header"
+                "sidebar main";
+            min-height: 100vh;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        /* 头部样式 */
+        header {
+            grid-area: header;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            background: rgba(44, 62, 80, 0.9);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            color: var(--primary);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .carbon-badge {
+            background: var(--primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            grid-area: sidebar;
+            background: rgba(44, 62, 80, 0.95);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .user-card {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--secondary);
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .user-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .user-role {
+            color: var(--primary);
+            font-size: 14px;
+        }
+
+        .nav-links {
+            padding: 20px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid var(--primary);
+        }
+
+        .nav-item i {
+            width: 24px;
+            text-align: center;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 15px 30px;
+        }
+
+        /* 主内容区样式 */
+        main {
+            grid-area: main;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            align-content: start;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transition: all 0.3s;
+            color: #333;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            margin: 15px 0;
+        }
+
+        .earth-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(52, 152, 219, 0.15);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--dark);
+        }
+
+        .stat-title {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .prediction-form {
+            display: grid;
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input,
+        .input-group select {
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: white;
+            font-size: 16px;
+        }
+
+        /* 3D地球热力图增强样式 */
+        .earth-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .time-slider {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            min-width: 250px;
+        }
+
+        .time-slider input {
+            flex: 1;
+        }
+
+        .time-slider span {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            min-width: 200px;
+        }
+
+        .search-box button {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+            background: var(--secondary);
+            color: white;
+            cursor: pointer;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(44, 62, 80, 0.8);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "header"
+                    "main";
+            }
+
+            .sidebar {
+                position: fixed;
+                left: -260px;
+                top: 80px;
+                bottom: 0;
+                transition: left 0.3s;
+                z-index: 1000;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+                padding: 15px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .earth-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        /* 量子计算标识 */
+        .quantum-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(45deg, #6a11cb, #2575fc);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 模块样式 */
+        .section {
+            display: block;
+            width: 100%;
+            grid-column: 1 / -1;
+        }
+
+        .section.hidden {
+            display: none;
+        }
+
+        /* 热力图样式 */
+        .heatmap-legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        /* 移动端菜单按钮 */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1024px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(46, 204, 113, 0.1);
+        }
+
+        /* VR区域 */
+        .vr-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #222;
+        }
+
+        .vr-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        /* 历史记录 */
+        .history-list {
+            margin-top: 15px;
+        }
+
+        .history-item {
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 策略列表 */
+        .strategy-list {
+            margin-top: 10px;
+        }
+
+        .strategy-item {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 热点标签 */
+        .hotspot-tags {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .hotspot-tag {
+            padding: 5px 10px;
+            background: rgba(231, 76, 60, 0.2);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        /* 设置项样式 */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .setting-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--dark);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .setting-item {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .setting-label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        /* 表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .data-table th {
+            background-color: rgba(52, 152, 219, 0.1);
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .data-table tr:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        /* 帮助中心 */
+        .faq-container {
+            display: grid;
+            gap: 20px;
+        }
+
+        .faq-item {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .faq-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .faq-question {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 18px;
+        }
+
+        .faq-answer {
+            margin-top: 15px;
+            color: #555;
+            display: none;
+        }
+
+        .faq-item.active .faq-answer {
+            display: block;
+        }
+
+        /* 热力图地图容器 */
+        #heatmap-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* 报告预览模态框 */
+        .report-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            display: none;
+        }
+
+        .report-content {
+            background: white;
+            width: 80%;
+            max-width: 900px;
+            height: 80%;
+            border-radius: 16px;
+            padding: 30px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .report-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .report-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .leaflet-control-zoom {
+            border: none;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .leaflet-bar a {
+            width: 36px;
+            height: 36px;
+            line-height: 36px;
+            border-radius: 0 !important;
+            background: white;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .leaflet-bar a:first-child {
+            border-bottom: 1px solid #eee;
+        }
+
+        .leaflet-bar a:hover {
+            background: #f5f5f5;
+        }
+
+        /* AI优化区域 */
+        .ai-optimization {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(46, 204, 113, 0.1);
+            border-radius: 12px;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ai-models {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .model-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(52, 152, 219, 0.2);
+            font-size: 14px;
+        }
+
+        .ai-response {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            color: #333;
+        }
+
+        /* PDF生成样式 */
+        .pdf-preview {
+            height: 400px;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .ai-loader {
+            display: none;
+            text-align: center;
+            padding: 15px;
+        }
+
+        .ai-loader .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 热点标记 */
+        .hotspot-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(231, 76, 60, 0.7);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.9);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .hotspot-marker:hover {
+            transform: scale(1.5);
+            box-shadow: 0 0 20px rgba(231, 76, 60, 1);
+        }
+
+        .hotspot-info {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            color: #333;
+            font-size: 14px;
+            z-index: 1001;
+            display: none;
+        }
+
+        .hotspot-info h4 {
+            color: #e74c3c;
+            margin-bottom: 5px;
+        }
+
+        /* 全屏按钮 */
+        .fullscreen-btn {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+            background: #9b59b6;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 实时数据指示器 */
+        .real-time-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            z-index: 100;
+        }
+
+        .real-time-indicator .pulse {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2ecc71;
+            box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- 侧边导航 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="user-card">
+                <div class="avatar">段</div>
+                <div class="user-name">段瑞</div>
+                <div class="user-role">碳管理分析师</div>
+            </div>
+
+            <div class="nav-links">
+                <div class="nav-item active" data-target="dashboard-section">
+                    <i class="fas fa-globe-asia"></i>
+                    <span>碳足迹仪表盘</span>
+                </div>
+                <div class="nav-item" data-target="predict-section">
+                    <i class="fas fa-chart-line"></i>
+                    <span>预测分析</span>
+                </div>
+                <div class="nav-item" data-target="upload-section">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>数据上传</span>
+                </div>
+                <div class="nav-item" data-target="vr-section">
+                    <i class="fas fa-industry"></i>
+                    <span>虚拟工厂</span>
+                </div>
+
+                <div class="nav-divider"></div>
+
+                <div class="nav-item" data-target="supply-section">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>供应链优化</span>
+                </div>
+                <div class="nav-item" data-target="trade-section">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>碳交易市场</span>
+                </div>
+                <div class="nav-item" data-target="report-section">
+                    <i class="fas fa-file-contract"></i>
+                    <span>合规报告</span>
+                </div>
+
+                <div class="nav-divider"></div>
+
+                <div class="nav-item" data-target="settings-section">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </div>
+                <div class="nav-item" data-target="help-section">
+                    <i class="fas fa-question-circle"></i>
+                    <span>帮助中心</span>
+                </div>
+            </div>
+
+            <div class="nav-item" id="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>退出系统</span>
+            </div>
+        </aside>
+
+        <!-- 头部 -->
+        <header>
+            <div class="header-left">
+                <button class="mobile-menu-btn" id="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="logo">CO₂</div>
+                <div class="logo-text">智能<span>碳足迹</span>平台</div>
+            </div>
+
+            <div class="header-right">
+                <div class="carbon-badge">
+                    <i class="fas fa-leaf"></i>
+                    今日排放: 12.3 kg
+                </div>
+                <button class="theme-toggle" id="themeToggle">
+                    <i class="fas fa-moon"></i> 深色模式
+                </button>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main>
+            <!-- 仪表盘区域 -->
+            <section id="dashboard-section" class="section">
+                <div class="card">
+                    <div class="quantum-badge">实时数据</div>
+                    <div class="card-header">
+                        <h2 class="card-title">全球碳排放热力图</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="refresh-heatmap">
+                                <i class="fas fa-sync"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="earth-controls">
+                        <div class="time-slider">
+                            <span>时间轴:</span>
+                            <input type="range" min="2010" max="2030" value="2023" id="timeControl">
+                            <span id="currentYear">2023</span>
+                        </div>
+
+                        <div class="search-box">
+                            <input type="text" id="locationSearch" placeholder="搜索国家、城市或地址...">
+                            <button id="searchBtn"><i class="fas fa-search"></i></button>
+                        </div>
+
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" id="zoom-in"><i class="fas fa-plus"></i></div>
+                            <div class="zoom-btn" id="zoom-out"><i class="fas fa-minus"></i></div>
+                        </div>
+
+                        <button class="btn btn-primary" id="animate-btn">
+                            <i class="fas fa-play"></i> 动态演示
+                        </button>
+
+                        <button class="fullscreen-btn" id="fullscreen-earth">
+                            <i class="fas fa-expand"></i> 全屏
+                        </button>
+                    </div>
+
+                    <div class="earth-container" id="earthContainer">
+                        <div id="heatmap-container"></div>
+                        <div class="real-time-indicator">
+                            <span class="pulse"></span> 实时更新中
+                        </div>
+                    </div>
+
+                    <div class="heatmap-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #2ecc71;"></div>
+                            <span>低碳 (0-100吨)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #f1c40f;"></div>
+                            <span>中碳 (100-500吨)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #e74c3c;"></div>
+                            <span>高碳 (500+吨)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">我的碳足迹概览</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="refresh-stats">
+                                <i class="fas fa-sync"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-title">本月排放</div>
+                            <div class="stat-value">2.3 t</div>
+                            <div class="stat-title">↓ 12% 同比</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">碳配额</div>
+                            <div class="stat-value">78%</div>
+                            <div class="stat-title">剩余配额</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">减排目标</div>
+                            <div class="stat-value">65%</div>
+                            <div class="stat-title">完成进度</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">碳积分</div>
+                            <div class="stat-value">1,250</div>
+                            <div class="stat-title">可兑换</div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="generate-report">
+                        <i class="fas fa-file-download"></i> 生成详细报告
+                    </button>
+                </div>
+            </section>
+
+            <!-- 预测分析区域 -->
+            <section id="predict-section" class="section hidden">
+                <div class="card">
+                    <div class="quantum-badge">AI预测</div>
+                    <div class="card-header">
+                        <h2 class="card-title">智能排放预测</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="optimize-prediction">
+                                <i class="fas fa-brain"></i> AI优化
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="trendChart"></div>
+
+                    <div class="ai-optimization">
+                        <div class="ai-header">
+                            <i class="fas fa-robot"></i>
+                            <h3>AI优化分析</h3>
+                        </div>
+                        <div class="ai-models">
+                            <span class="model-badge">DeepSeek</span>
+                            <span class="model-badge">豆包</span>
+                            <span class="model-badge">Kimi</span>
+                            <span class="model-badge">通义</span>
+                        </div>
+                        <div class="ai-loader" id="aiLoader">
+                            <div class="spinner"></div>
+                            <p>AI正在分析数据，请稍候...</p>
+                        </div>
+                        <div class="ai-response" id="aiResponse">
+                            点击"AI优化"按钮获取针对您数据的减排建议
+                        </div>
+                    </div>
+
+                    <div class="prediction-form">
+                        <div class="input-group">
+                            <label for="production">生产量（吨）</label>
+                            <input type="number" id="production" placeholder="输入生产量" value="1200">
+                        </div>
+                        <div class="input-group">
+                            <label for="energy">能耗（千瓦时）</label>
+                            <input type="number" id="energy" placeholder="输入能耗" value="45000">
+                        </div>
+                        <div class="input-group">
+                            <label for="transport">运输距离（公里）</label>
+                            <input type="number" id="transport" placeholder="输入运输距离" value="250">
+                        </div>
+                        <div class="input-group">
+                            <label for="predictionType">预测类型</label>
+                            <select id="predictionType">
+                                <option value="short">短期预测 (1-3个月)</option>
+                                <option value="medium" selected>中期预测 (6个月)</option>
+                                <option value="long">长期预测 (1-2年)</option>
+                                <option value="policy">政策影响预测</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="generate-prediction">
+                            <i class="fas fa-calculator"></i> 开始预测
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">减排路径优化</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="ai-suggest">
+                                <i class="fas fa-robot"></i> AI建议
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>当前碳排放热点</label>
+                        <div class="hotspot-tags">
+                            <span class="hotspot-tag">运输物流 (35%)</span>
+                            <span class="hotspot-tag">生产能耗 (28%)</span>
+                            <span class="hotspot-tag">原材料采购 (22%)</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>推荐减排策略</label>
+                        <div class="strategy-list" id="strategyList">
+                            <div class="strategy-item">
+                                <i class="fas fa-check-circle" style="color: #2ecc71;"></i>
+                                更换物流供应商：减排12% · 投资回收期1.2年
+                            </div>
+                            <div class="strategy-item">
+                                <i class="fas fa-check-circle" style="color: #2ecc71;"></i>
+                                安装太阳能设备：减排8% · 投资回收期3.5年
+                            </div>
+                            <div class="strategy-item">
+                                <i class="fas fa-info-circle" style="color: #f39c12;"></i>
+                                升级生产设备：减排15% · 投资回收期4.2年
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="simulate-btn">
+                        <i class="fas fa-play-circle"></i> 模拟减排效果
+                    </button>
+
+                    <div class="chart-container" id="simulationChart" style="margin-top: 20px;"></div>
+                </div>
+            </section>
+
+            <!-- 数据上传区域 -->
+            <section id="upload-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">数据上传中心</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="clear-files">
+                                <i class="fas fa-trash"></i> 清空
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="upload-area" id="dropZone">
+                        <h3><i class="fas fa-cloud-upload-alt"></i> 拖放文件到此处或点击上传</h3>
+                        <p>支持 CSV、Excel、JSON 文件格式</p>
+                    </div>
+
+                    <div class="input-group">
+                        <label>历史上传记录</label>
+                        <div class="history-list" id="historyList">
+                            <div class="history-item">
+                                <i class="fas fa-file-csv" style="color: #3498db;"></i>
+                                碳排放数据_2023Q3.csv · 2023-10-15
+                            </div>
+                            <div class="history-item">
+                                <i class="fas fa-file-excel" style="color: #27ae60;"></i>
+                                能源消耗报告.xlsx · 2023-10-10
+                            </div>
+                            <div class="history-item">
+                                <i class="fas fa-file-image" style="color: #e74c3c;"></i>
+                                工厂排放图.jpg · 2023-10-05
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 虚拟工厂区域 -->
+            <section id="vr-section" class="section hidden">
+                <div class="card">
+                    <div class="quantum-badge">VR体验</div>
+                    <div class="card-header">
+                        <h2 class="card-title">虚拟工厂体验</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="fullscreen-vr">
+                                <i class="fas fa-expand"></i> 全屏
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="vr-container" id="vrContainer">
+                        <div id="factory-view" style="width:100%;height:100%;position:relative;">
+                            <img src="https://images.unsplash.com/photo-1634117388010-8e459d1a5e4a?auto=format&fit=crop&w=1200&h=600&q=80"
+                                 style="width:100%;height:100%;object-fit:cover;">
+                            <div class="hotspot-marker" style="top:40%;left:30%;" data-info="熔炼车间: 碳排放量1.2t/h, 温度1200℃"></div>
+                            <div class="hotspot-marker" style="top:60%;left:60%;" data-info="装配线: 碳排放量0.8t/h, 设备效率85%"></div>
+                            <div class="hotspot-marker" style="top:20%;left:70%;" data-info="锅炉区: 碳排放量0.9t/h, 压力2.5MPa"></div>
+                            <div class="hotspot-info" id="hotspotInfo"></div>
+                        </div>
+                    </div>
+
+                    <div class="vr-stats" style="margin-top: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div class="vr-stat">
+                            <span>碳排放热点:</span>
+                            <strong id="hotspotName">熔炼车间</strong>
+                        </div>
+                        <div class="vr-stat">
+                            <span>实时排放:</span>
+                            <strong id="emissionRate">1.2 t/h</strong>
+                        </div>
+                        <div class="vr-stat">
+                            <span>能源消耗:</span>
+                            <strong id="energyConsumption">450 kW</strong>
+                        </div>
+                        <div class="vr-stat">
+                            <span>设备状态:</span>
+                            <strong id="equipmentStatus">运行中</strong>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="factoryChart" style="margin-top: 20px;"></div>
+                </div>
+            </section>
+
+            <!-- 供应链优化区域 -->
+            <section id="supply-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">供应链碳排放分析</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="refresh-supply">
+                                <i class="fas fa-sync"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="supplyChainChart"></div>
+
+                    <div class="input-group" style="margin-top: 20px;">
+                        <label>供应链碳排放热点</label>
+                        <div class="hotspot-tags">
+                            <span class="hotspot-tag">原材料运输 (42%)</span>
+                            <span class="hotspot-tag">包装材料 (28%)</span>
+                            <span class="hotspot-tag">仓储物流 (18%)</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>优化建议</label>
+                        <div class="strategy-list">
+                            <div class="strategy-item">
+                                <i class="fas fa-check-circle" style="color: #2ecc71;"></i>
+                                本地化采购：减少运输距离，预计减排15%
+                            </div>
+                            <div class="strategy-item">
+                                <i class="fas fa-check-circle" style="color: #2ecc71;"></i>
+                                使用可回收包装：减少包装碳排放28%
+                            </div>
+                            <div class="strategy-item">
+                                <i class="fas fa-info-circle" style="color: #f39c12;"></i>
+                                优化仓储布局：减少物流环节，预计减排10%
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="optimize-supply" style="margin-top: 15px;">
+                        <i class="fas fa-cogs"></i> 应用优化方案
+                    </button>
+                </div>
+            </section>
+
+            <!-- 碳交易市场区域 -->
+            <section id="trade-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">碳交易市场</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="refresh-trade">
+                                <i class="fas fa-sync"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-title">当前碳价</div>
+                            <div class="stat-value">¥68.5</div>
+                            <div class="stat-title">↑ 3.2% 周环比</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">您的配额</div>
+                            <div class="stat-value">2,580 t</div>
+                            <div class="stat-title">剩余交易量</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">今日交易量</div>
+                            <div class="stat-value">1.2M t</div>
+                            <div class="stat-title">市场总交易</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="carbonPriceChart"></div>
+
+                    <div class="input-group" style="margin-top: 20px;">
+                        <label>交易操作</label>
+                        <div style="display: flex; gap: 15px; margin-top: 10px;">
+                            <button class="btn btn-primary" id="buy-carbon">
+                                <i class="fas fa-arrow-up"></i> 买入配额
+                            </button>
+                            <button class="btn btn-warning" id="sell-carbon">
+                                <i class="fas fa-arrow-down"></i> 卖出配额
+                            </button>
+                            <button class="btn btn-secondary" id="trade-history">
+                                <i class="fas fa-history"></i> 交易历史
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 合规报告区域 -->
+            <section id="report-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">合规报告中心</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="new-report">
+                                <i class="fas fa-plus"></i> 新建报告
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>报告模板</label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px;">
+                            <div class="stat-card template-card" data-template="quarterly" style="cursor: pointer;">
+                                <i class="fas fa-file-alt" style="font-size: 24px; margin-bottom: 10px; color: #3498db;"></i>
+                                <div>季度碳排放报告</div>
+                            </div>
+                            <div class="stat-card template-card" data-template="annual" style="cursor: pointer;">
+                                <i class="fas fa-file-invoice" style="font-size: 24px; margin-bottom: 10px; color: #e74c3c;"></i>
+                                <div>年度合规报告</div>
+                            </div>
+                            <div class="stat-card template-card" data-template="reduction" style="cursor: pointer;">
+                                <i class="fas fa-chart-pie" style="font-size: 24px; margin-bottom: 10px; color: #2ecc71;"></i>
+                                <div>减排成效分析</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-top: 20px;">
+                        <label>历史报告</label>
+                        <div class="history-list">
+                            <div class="history-item">
+                                <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
+                                2023年Q3碳排放报告.pdf · 2023-10-20
+                                <button class="btn btn-secondary preview-report" style="margin-left: auto; padding: 5px 10px;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="history-item">
+                                <i class="fas fa-file-excel" style="color: #27ae60;"></i>
+                                2023年上半年减排成效.xlsx · 2023-07-15
+                                <button class="btn btn-secondary preview-report" style="margin-left: auto; padding: 5px 10px;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="history-item">
+                                <i class="fas fa-file-word" style="color: #3498db;"></i>
+                                碳足迹合规性评估.docx · 2023-05-10
+                                <button class="btn btn-secondary preview-report" style="margin-left: auto; padding: 5px 10px;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 系统设置区域 -->
+            <section id="settings-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">系统设置</h2>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="setting-card">
+                            <div class="setting-title">账户设置</div>
+                            <div class="setting-item">
+                                <div class="setting-label">用户名</div>
+                                <input type="text" value="张三" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">邮箱</div>
+                                <input type="email" value="zhangsan@example.com" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">密码</div>
+                                <button class="btn btn-secondary" id="change-password">更改密码</button>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">双因素认证</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="two-factor" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="setting-card">
+                            <div class="setting-title">通知设置</div>
+                            <div class="setting-item">
+                                <div class="setting-label">邮件通知</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="email-notify" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">应用内通知</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="app-notify" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">短信提醒</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="sms-notify">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">预警阈值</div>
+                                <input type="number" id="alert-threshold" value="80" style="width: 60px; padding: 8px; border-radius: 6px; border: 1px solid #ddd;"> %
+                            </div>
+                        </div>
+
+                        <div class="setting-card">
+                            <div class="setting-title">数据管理</div>
+                            <div class="setting-item">
+                                <div class="setting-label">数据备份频率</div>
+                                <select id="backup-frequency" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                                    <option>每天</option>
+                                    <option selected>每周</option>
+                                    <option>每月</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">数据保留时间</div>
+                                <select id="data-retention" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                                    <option>6个月</option>
+                                    <option selected>1年</option>
+                                    <option>2年</option>
+                                    <option>永久</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">自动数据清理</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="auto-clean" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <button class="btn btn-primary" id="export-data" style="width: 100%; margin-top: 10px;">
+                                    <i class="fas fa-download"></i> 导出所有数据
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="setting-card">
+                            <div class="setting-title">API集成</div>
+                            <div class="setting-item">
+                                <div class="setting-label">ERP系统集成</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="erp-integration">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">能源监测系统</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="energy-monitor" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">物流追踪系统</div>
+                                <label class="switch">
+                                    <input type="checkbox" id="logistics-tracker">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">API密钥</div>
+                                <button class="btn btn-secondary" id="generate-api">生成新密钥</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px; gap: 10px;">
+                        <button class="btn btn-secondary" id="cancel-settings">取消</button>
+                        <button class="btn btn-primary" id="save-settings">保存设置</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 帮助中心区域 -->
+            <section id="help-section" class="section hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">帮助中心</h2>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" id="contact-support">
+                                <i class="fas fa-headset"></i> 联系支持
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="faq-container">
+                        <div class="faq-item">
+                            <div class="faq-question">
+                                <span>如何上传碳排放数据？</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>您可以通过"数据上传"模块上传CSV、Excel或JSON格式的碳排放数据文件。系统支持批量上传和自动解析，确保数据格式符合要求即可。</p>
+                            </div>
+                        </div>
+
+                        <div class="faq-item">
+                            <div class="faq-question">
+                                <span>如何生成碳足迹报告？</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>在仪表盘页面点击"生成详细报告"按钮，系统将根据您的数据自动生成PDF格式的碳足迹报告。您可以选择报告的时间范围和内容模块。</p>
+                            </div>
+                        </div>
+
+                        <div class="faq-item">
+                            <div class="faq-question">
+                                <span>预测分析如何使用？</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>在预测分析模块输入相关参数（如生产量、能耗等），选择预测类型（短期/中期/长期），点击"生成预测报告"按钮。系统将基于AI算法生成碳排放趋势预测图表。</p>
+                            </div>
+                        </div>
+
+                        <div class="faq-item">
+                            <div class="faq-question">
+                                <span>如何优化供应链碳排放？</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>系统通过分析供应链各环节的碳排放数据，识别热点区域并提供优化建议。您可以在"供应链优化"模块查看详细分析和建议措施。</p>
+                            </div>
+                        </div>
+
+                        <div class="faq-item">
+                            <div class="faq-question">
+                                <span>碳交易市场如何操作？</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>在"碳交易市场"模块，您可以查看实时碳价、市场趋势，并进行配额买卖操作。系统提供交易历史记录和统计分析功能。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <h3 style="color: var(--primary); margin-bottom: 15px;">视频教程</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; cursor: pointer;">
+                                <div style="background: #e9ecef; height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6c757d; margin-bottom: 10px;">
+                                    <i class="fas fa-play-circle" style="font-size: 48px;"></i>
+                                </div>
+                                <div style="font-weight: 600;">数据上传教程</div>
+                                <div style="color: #6c757d; font-size: 14px;">5分钟 · 初级</div>
+                            </div>
+
+                            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; cursor: pointer;">
+                                <div style="background: #e9ecef; height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6c757d; margin-bottom: 10px;">
+                                    <i class="fas fa-play-circle" style="font-size: 48px;"></i>
+                                </div>
+                                <div style="font-weight: 600;">报告生成指南</div>
+                                <div style="color: #6c757d; font-size: 14px;">8分钟 · 中级</div>
+                            </div>
+
+                            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; cursor: pointer;">
+                                <div style="background: #e9ecef; height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6c757d; margin-bottom: 10px;">
+                                    <i class="fas fa-play-circle" style="font-size: 48px;"></i>
+                                </div>
+                                <div style="font-weight: 600;">碳交易操作指南</div>
+                                <div style="color: #6c757d; font-size: 14px;">12分钟 · 高级</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 报告预览模态框 -->
+    <div class="report-modal" id="reportModal">
+        <div class="report-content">
+            <div class="report-header">
+                <h2>碳足迹报告 - 2023年第三季度</h2>
+                <button id="closeReport" class="btn btn-secondary">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="report-body">
+                <h3 style="color: var(--primary);">碳排放概览</h3>
+                <p>本季度总碳排放量：<strong>2.3吨</strong>，同比下降12%。</p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div>
+                        <h4>排放来源分布</h4>
+                        <div id="reportChart1" style="height: 250px;"></div>
+                    </div>
+                    <div>
+                        <h4>月度排放趋势</h4>
+                        <div id="reportChart2" style="height: 250px;"></div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px;">减排成效</h3>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>生产环节：通过设备升级，能源效率提升15%</li>
+                    <li>物流运输：优化路线后，运输排放减少12%</li>
+                    <li>办公区域：采用节能设备后，电力消耗下降8%</li>
+                </ul>
+
+                <h3 style="margin-top: 30px;">下季度计划</h3>
+                <p>计划在第四季度实施以下减排措施：</p>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li>安装太阳能发电系统，预计减少碳排放20%</li>
+                    <li>引入碳捕捉技术，处理生产过程中的废气</li>
+                    <li>优化供应链，与绿色供应商建立长期合作关系</li>
+                </ol>
+
+                <div class="pdf-preview" id="pdfPreview">
+                    <!-- PDF预览区域 -->
+                </div>
+            </div>
+            <div class="report-footer">
+                <button id="downloadReport" class="btn btn-primary">
+                    <i class="fas fa-download"></i> 下载PDF报告
+                </button>
+                <button id="closeReport2" class="btn btn-secondary">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let map, heatmapLayer, animationInterval;
+        const heatmapData = [];
+        const aiModels = ['DeepSeek', '豆包', 'Kimi', '通义'];
+        const hotspots = [
+            { name: "熔炼车间", emission: "1.2 t/h", energy: "450 kW", status: "运行中" },
+            { name: "装配线", emission: "0.8 t/h", energy: "320 kW", status: "运行中" },
+            { name: "锅炉区", emission: "0.9 t/h", energy: "380 kW", status: "运行中" }
+        ];
+
+        // 热力图配置
+        const heatmapConfig = {
+            radius: 25,
+            opacity: [0.8, 0.8],
+            gradient: {
+                0.1: '#2ecc71',
+                0.5: '#f1c40f',
+                0.9: '#e74c3c'
+            },
+            zIndex: 100
+        };
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载高德地图API
+            const script = document.createElement('script');
+            script.src = 'https://webapi.amap.com/maps?v=2.0&key=7a35b5450805c5ad452dd3ba463b1368&plugin=AMap.Heatmap';
+            script.onload = function() {
+                initSidebar();
+                initButtons();
+                initEarth();
+                initTrendChart();
+                initFAQ();
+                initReportCharts();
+                initVirtualFactory();
+
+                // 默认显示仪表盘
+                document.getElementById('dashboard-section').classList.remove('hidden');
+            };
+            document.head.appendChild(script);
+        });
+
+        // 初始化侧边栏功能
+        function initSidebar() {
+            const navItems = document.querySelectorAll('.nav-item');
+            const sections = document.querySelectorAll('.section');
+
+            navItems.forEach(item => {
+                if (item.id !== 'logout-btn') {
+                    item.addEventListener('click', function() {
+                        const targetId = this.getAttribute('data-target');
+
+                        // 更新活动状态
+                        navItems.forEach(nav => nav.classList.remove('active'));
+                        this.classList.add('active');
+
+                        // 显示对应模块
+                        sections.forEach(section => {
+                            section.classList.add('hidden');
+                        });
+                        document.getElementById(targetId).classList.remove('hidden');
+
+                        // 在移动端点击后关闭侧边栏
+                        if (window.innerWidth <= 1024) {
+                            document.getElementById('sidebar').classList.remove('active');
+                        }
+
+                        // 特殊模块加载
+                        if(targetId === 'dashboard-section') {
+                            initEarth();
+                        }
+                        else if(targetId === 'predict-section') {
+                            initTrendChart();
+                        }
+                        else if(targetId === 'vr-section') {
+                            initVirtualFactory();
+                        }
+                        else if(targetId === 'supply-section') {
+                            initSupplyChainChart();
+                        }
+                        else if(targetId === 'trade-section') {
+                            initCarbonPriceChart();
+                        }
+                    });
+                }
+            });
+
+            // 退出按钮
+            document.getElementById('logout-btn').addEventListener('click', function() {
+                alert('您已成功退出系统');
+                // 实际应用中这里会有重定向到登录页的代码
+            });
+
+            // 移动端菜单按钮
+            document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+        }
+
+        // 初始化按钮功能
+        function initButtons() {
+            // 主题切换
+            document.getElementById('themeToggle').addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('fa-moon')) {
+                    icon.className = 'fas fa-sun';
+                    this.innerHTML = '<i class="fas fa-sun"></i> 浅色模式';
+                    document.body.style.background = 'linear-gradient(135deg, #0f1b3a, #4a1a1a, #0f1b3a)';
+                } else {
+                    icon.className = 'fas fa-moon';
+                    this.innerHTML = '<i class="fas fa-moon"></i> 深色模式';
+                    document.body.style.background = 'linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c)';
+                }
+            });
+
+            // 时间轴控制
+            const timeControl = document.getElementById('timeControl');
+            const currentYear = document.getElementById('currentYear');
+            timeControl.addEventListener('input', function() {
+                currentYear.textContent = this.value;
+                updateHeatmap(parseInt(this.value));
+            });
+
+            // 刷新热力图
+            document.getElementById('refresh-heatmap').addEventListener('click', function() {
+                initEarth();
+            });
+
+            // 动态演示按钮
+            document.getElementById('animate-btn').addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('fa-play')) {
+                    icon.className = 'fas fa-pause';
+                    this.innerHTML = '<i class="fas fa-pause"></i> 暂停演示';
+                    startAnimation();
+                } else {
+                    icon.className = 'fas fa-play';
+                    this.innerHTML = '<i class="fas fa-play"></i> 动态演示';
+                    stopAnimation();
+                }
+            });
+
+            // 生成报告
+            document.getElementById('generate-report').addEventListener('click', function() {
+                document.getElementById('reportModal').style.display = 'flex';
+            });
+
+            // 关闭报告
+            document.getElementById('closeReport').addEventListener('click', function() {
+                document.getElementById('reportModal').style.display = 'none';
+            });
+
+            document.getElementById('closeReport2').addEventListener('click', function() {
+                document.getElementById('reportModal').style.display = 'none';
+            });
+
+            // 下载报告
+            document.getElementById('downloadReport').addEventListener('click', function() {
+                generatePDFReport();
+            });
+
+            // 预览报告
+            document.querySelectorAll('.preview-report').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('reportModal').style.display = 'flex';
+                });
+            });
+
+            // 生成预测报告
+            document.getElementById('generate-prediction').addEventListener('click', function() {
+                const production = parseFloat(document.getElementById('production').value) || 1200;
+                const energy = parseFloat(document.getElementById('energy').value) || 45000;
+                const transport = parseFloat(document.getElementById('transport').value) || 250;
+
+                updateTrendChart(production, energy, transport);
+            });
+
+            // 模拟减排效果
+            document.getElementById('simulate-btn').addEventListener('click', function() {
+                simulateReduction();
+            });
+
+            // 清空文件
+            document.getElementById('clear-files').addEventListener('click', function() {
+                if(confirm('确定要清空所有上传记录吗？')) {
+                    document.getElementById('historyList').innerHTML = '<div class="history-item">无上传记录</div>';
+                }
+            });
+
+            // 文件上传区域
+            document.getElementById('dropZone').addEventListener('click', function() {
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.csv,.xlsx,.json';
+                fileInput.onchange = function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        alert(`已选择文件: ${file.name}\n模拟上传中...`);
+                        // 模拟上传成功
+                        const historyItem = document.createElement('div');
+                        historyItem.className = 'history-item';
+                        const ext = file.name.split('.').pop().toLowerCase();
+                        let iconClass, iconColor;
+
+                        if (ext === 'csv') {
+                            iconClass = 'fa-file-csv';
+                            iconColor = '#3498db';
+                        } else if (ext === 'xlsx') {
+                            iconClass = 'fa-file-excel';
+                            iconColor = '#27ae60';
+                        } else {
+                            iconClass = 'fa-file';
+                            iconColor = '#9b59b6';
+                        }
+
+                        const now = new Date();
+                        const dateStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
+                        historyItem.innerHTML = `
+                            <i class="fas ${iconClass}" style="color: ${iconColor};"></i>
+                            ${file.name} · ${dateStr}
+                        `;
+
+                        document.getElementById('historyList').prepend(historyItem);
+                        alert('文件上传成功！');
+                    }
+                };
+                fileInput.click();
+            });
+
+            // 全屏功能
+            document.getElementById('fullscreen-vr').addEventListener('click', function() {
+                const vrContainer = document.querySelector('.vr-container');
+                if (vrContainer.requestFullscreen) {
+                    vrContainer.requestFullscreen();
+                } else if (vrContainer.mozRequestFullScreen) {
+                    vrContainer.mozRequestFullScreen();
+                } else if (vrContainer.webkitRequestFullscreen) {
+                    vrContainer.webkitRequestFullscreen();
+                } else if (vrContainer.msRequestFullscreen) {
+                    vrContainer.msRequestFullscreen();
+                }
+            });
+
+            // 热力图全屏功能
+            document.getElementById('fullscreen-earth').addEventListener('click', function() {
+                const earthContainer = document.getElementById('earthContainer');
+                if (earthContainer.requestFullscreen) {
+                    earthContainer.requestFullscreen();
+                } else if (earthContainer.mozRequestFullScreen) {
+                    earthContainer.mozRequestFullScreen();
+                } else if (earthContainer.webkitRequestFullscreen) {
+                    earthContainer.webkitRequestFullscreen();
+                } else if (earthContainer.msRequestFullscreen) {
+                    earthContainer.msRequestFullscreen();
+                }
+            });
+
+            // 缩放控制
+            document.getElementById('zoom-in').addEventListener('click', function() {
+                if(map) map.zoomIn();
+            });
+
+            document.getElementById('zoom-out').addEventListener('click', function() {
+                if(map) map.zoomOut();
+            });
+
+            // 搜索功能
+            document.getElementById('searchBtn').addEventListener('click', function() {
+                const location = document.getElementById('locationSearch').value;
+                if(location) {
+                    searchLocation(location);
+                }
+            });
+
+            // AI优化按钮
+            document.getElementById('optimize-prediction').addEventListener('click', function() {
+                getAIRecommendation();
+            });
+
+            // AI建议按钮
+            document.getElementById('ai-suggest').addEventListener('click', function() {
+                getAISuggestions();
+            });
+
+            // 供应链优化按钮
+            document.getElementById('optimize-supply').addEventListener('click', function() {
+                alert('供应链优化方案已应用！预计可减少碳排放12%');
+            });
+
+            // 碳交易按钮
+            document.getElementById('buy-carbon').addEventListener('click', function() {
+                const amount = prompt('请输入要购买的碳配额（吨）:', '100');
+                if (amount) {
+                    alert(`已成功购买 ${amount} 吨碳配额！`);
+                }
+            });
+
+            document.getElementById('sell-carbon').addEventListener('click', function() {
+                const amount = prompt('请输入要出售的碳配额（吨）:', '50');
+                if (amount) {
+                    alert(`已成功出售 ${amount} 吨碳配额！`);
+                }
+            });
+
+            document.getElementById('trade-history').addEventListener('click', function() {
+                alert('正在加载交易历史...');
+            });
+
+            // 系统设置按钮
+            document.getElementById('save-settings').addEventListener('click', function() {
+                alert('系统设置已保存！');
+            });
+
+            document.getElementById('cancel-settings').addEventListener('click', function() {
+                alert('已取消设置更改');
+            });
+
+            document.getElementById('change-password').addEventListener('click', function() {
+                alert('密码更改功能已打开');
+            });
+
+            document.getElementById('export-data').addEventListener('click', function() {
+                alert('数据导出中...');
+            });
+
+            document.getElementById('generate-api').addEventListener('click', function() {
+                alert('已生成新的API密钥: sk-xxxxxxxxxxxxxxxxxxxxxxxx');
+            });
+
+            // 帮助中心按钮
+            document.getElementById('contact-support').addEventListener('click', function() {
+                alert('正在联系技术支持...');
+            });
+
+            // 报告模板选择
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const template = this.getAttribute('data-template');
+                    alert(`已选择模板: ${this.querySelector('div').textContent}`);
+                });
+            });
+        }
+
+        // 初始化3D地球热力图（使用高德地图）
+        function initEarth() {
+            const container = document.getElementById('heatmap-container');
+            container.innerHTML = '';
+
+            // 初始化地图
+            map = new AMap.Map('heatmap-container', {
+                center: [114.3052, 30.5928], // 武汉
+                zoom: 4,
+                viewMode: '3D',
+                mapStyle: 'amap://styles/normal'  // 使用正常主题
+            });
+
+            // 添加缩放控件
+            map.addControl(new AMap.Zoom());
+
+            // 添加比例尺控件
+            map.addControl(new AMap.Scale());
+
+            // 添加工具栏
+            map.addControl(new AMap.ToolBar({
+                position: 'RT'
+            }));
+
+            // 生成热力图数据（模拟）
+            generateHeatmapData();
+
+            // 创建热力图
+            heatmapLayer = new AMap.Heatmap(map, heatmapConfig);
+            heatmapLayer.setDataSet({
+                data: heatmapData,
+                max: 100
+            });
+
+            // 监听地图缩放事件，调整热力图半径
+            map.on('zoomchange', function() {
+                const zoom = map.getZoom();
+                // 根据缩放级别调整热力点半径
+                const radius = Math.max(15, Math.min(50, 50 - zoom * 2));
+                heatmapLayer.setOptions({
+                    radius: radius
+                });
+            });
+        }
+
+        // 生成热力图数据（模拟）
+        function generateHeatmapData() {
+            heatmapData.length = 0;
+
+            // 主要城市坐标（全球）
+            const cities = [
+                // 中国
+                {name: "北京", lng: 116.4074, lat: 39.9042, value: 95},
+                {name: "上海", lng: 121.4737, lat: 31.2304, value: 90},
+                {name: "广州", lng: 113.2644, lat: 23.1291, value: 85},
+                {name: "深圳", lng: 114.0579, lat: 22.5431, value: 88},
+                {name: "重庆", lng: 106.9123, lat: 29.4316, value: 80},
+                {name: "天津", lng: 117.3616, lat: 39.3434, value: 82},
+                {name: "武汉", lng: 114.3052, lat: 30.5928, value: 75},
+                {name: "成都", lng: 104.0668, lat: 30.5728, value: 78},
+                {name: "西安", lng: 108.9398, lat: 34.3416, value: 70},
+                {name: "杭州", lng: 120.1551, lat: 30.2741, value: 77},
+
+                // 中国乡镇
+                {name: "华西村", lng: 120.45, lat: 31.82, value: 65},
+                {name: "周庄", lng: 120.84, lat: 31.12, value: 60},
+                {name: "乌镇", lng: 120.48, lat: 30.75, value: 62},
+                {name: "西塘", lng: 120.89, lat: 30.94, value: 58},
+                {name: "南浔", lng: 120.42, lat: 30.87, value: 55},
+                {name: "同里", lng: 120.72, lat: 31.16, value: 57},
+                {name: "甪直", lng: 120.86, lat: 31.27, value: 53},
+                {name: "朱家角", lng: 121.05, lat: 31.11, value: 59},
+                {name: "千灯", lng: 120.96, lat: 31.26, value: 52},
+                {name: "锦溪", lng: 120.90, lat: 31.18, value: 50},
+
+                // 美国
+                {name: "纽约", lng: -74.0060, lat: 40.7128, value: 92},
+                {name: "洛杉矶", lng: -118.2437, lat: 34.0522, value: 88},
+                {name: "芝加哥", lng: -87.6298, lat: 41.8781, value: 85},
+
+                // 欧洲
+                {name: "伦敦", lng: -0.1278, lat: 51.5074, value: 82},
+                {name: "巴黎", lng: 2.3522, lat: 48.8566, value: 80},
+                {name: "柏林", lng: 13.4050, lat: 52.5200, value: 75},
+
+                // 亚洲其他地区
+                {name: "东京", lng: 139.6917, lat: 35.6895, value: 90},
+                {name: "首尔", lng: 126.9780, lat: 37.5665, value: 85},
+                {name: "孟买", lng: 72.8777, lat: 19.0760, value: 88},
+                {name: "新加坡", lng: 103.8198, lat: 1.3521, value: 83}
+            ];
+
+            // 添加城市热力点
+            cities.forEach(city => {
+                heatmapData.push({
+                    lng: city.lng,
+                    lat: city.lat,
+                    count: city.value
+                });
+
+                // 添加城市周围的随机热力点（模拟精确数据）
+                for(let i = 0; i < 50; i++) {
+                    const offsetLat = (Math.random() - 0.5) * 0.5;
+                    const offsetLng = (Math.random() - 0.5) * 0.5;
+                    const value = city.value * (0.7 + Math.random() * 0.3);
+
+                    heatmapData.push({
+                        lng: city.lng + offsetLng,
+                        lat: city.lat + offsetLat,
+                        count: value
+                    });
+                }
+            });
+        }
+
+        // 更新热力图
+        function updateHeatmap(year) {
+            // 模拟根据年份调整热力强度
+            const intensity = Math.min(1, (year - 2010) / 20);
+
+            const updatedData = heatmapData.map(point => {
+                return {
+                    ...point,
+                    count: Math.min(100, point.count * (1 + intensity * 0.5))
+                };
+            });
+
+            heatmapLayer.setDataSet({
+                data: updatedData,
+                max: 100
+            });
+        }
+
+        // 搜索位置
+        function searchLocation(location) {
+            // 模拟位置搜索
+            const locations = {
+                "北京": [116.4074, 39.9042],
+                "上海": [121.4737, 31.2304],
+                "广州": [113.2644, 23.1291],
+                "深圳": [114.0579, 22.5431],
+                "重庆": [106.9123, 29.4316],
+                "天津": [117.3616, 39.3434],
+                "武汉": [114.3052, 30.5928],
+                "成都": [104.0668, 30.5728],
+                "西安": [108.9398, 34.3416],
+                "杭州": [120.1551, 30.2741],
+                "华西村": [120.45, 31.82],
+                "周庄": [120.84, 31.12],
+                "乌镇": [120.48, 30.75],
+                "纽约": [-74.0060, 40.7128],
+                "伦敦": [-0.1278, 51.5074],
+                "东京": [139.6917, 35.6895]
+            };
+
+            const coords = locations[location];
+            if(coords) {
+                map.setCenter(coords);
+                map.setZoom(12);
+            } else {
+                alert(`未找到 ${location} 的位置信息`);
+            }
+        }
+
+        // 初始化趋势图表
+        function initTrendChart() {
+            const chartDom = document.getElementById('trendChart');
+            chartDom.innerHTML = '';
+
+            // 创建图表容器
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '100%';
+            chartDom.appendChild(chartContainer);
+
+            // 初始化ECharts实例
+            const myChart = echarts.init(chartContainer);
+
+            // 设置图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['历史碳排放', '预测碳排放'],
+                    textStyle: {
+                        color: '#333'
+                    },
+                    bottom: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '吨 (t)',
+                    nameTextStyle: {
+                        color: '#666'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            type: 'dashed'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '历史碳排放',
+                        type: 'line',
+                        data: [120, 132, 101, 134, 90, 130, 145, 122, 165, 142, 135, 150],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#3498db'
+                        },
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        itemStyle: {
+                            color: '#3498db'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(52, 152, 219, 0.5)' },
+                                { offset: 1, color: 'rgba(52, 152, 219, 0.1)' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '预测碳排放',
+                        type: 'line',
+                        data: [null, null, null, null, null, null, null, null, 150, 140, 130, 120],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            type: 'dashed',
+                            color: '#e74c3c'
+                        },
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        itemStyle: {
+                            color: '#e74c3c'
+                        },
+                        markLine: {
+                            symbol: 'none',
+                            lineStyle: {
+                                color: '#e74c3c',
+                                type: 'solid',
+                                width: 1
+                            },
+                            data: [
+                                { xAxis: '8月' }
+                            ],
+                            label: {
+                                position: 'middle',
+                                formatter: '预测开始'
+                            }
+                        }
+                    }
+                ]
+            };
+
+            // 应用配置
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+
+            // 保存图表实例
+            chartContainer.chartInstance = myChart;
+        }
+
+        // 更新趋势图表
+        function updateTrendChart(production, energy, transport) {
+            const chartDom = document.getElementById('trendChart');
+            const chartContainer = chartDom.querySelector('div');
+            const myChart = chartContainer.chartInstance;
+
+            if (!myChart) return;
+
+            // 根据输入参数计算预测值
+            const baseValue = 150;
+            const productionFactor = production / 1200;
+            const energyFactor = energy / 45000;
+            const transportFactor = transport / 250;
+
+            const predictionData = [
+                null, null, null, null, null, null, null, null,
+                baseValue,
+                baseValue * (0.95 * productionFactor + 0.03 * energyFactor + 0.02 * transportFactor),
+                baseValue * (0.9 * productionFactor + 0.05 * energyFactor + 0.05 * transportFactor),
+                baseValue * (0.85 * productionFactor + 0.08 * energyFactor + 0.07 * transportFactor)
+            ];
+
+            // 获取当前选项
+            const option = myChart.getOption();
+
+            // 更新数据
+            option.series[1].data = predictionData;
+
+            // 应用更新
+            myChart.setOption(option);
+        }
+
+        // 模拟减排效果
+        function simulateReduction() {
+            const chartDom = document.getElementById('simulationChart');
+            chartDom.innerHTML = '';
+
+            // 创建图表容器
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '100%';
+            chartDom.appendChild(chartContainer);
+
+            // 初始化ECharts实例
+            const myChart = echarts.init(chartContainer);
+
+            // 设置图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['当前排放', '优化后排放'],
+                    textStyle: {
+                        color: '#333'
+                    },
+                    bottom: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['运输物流', '生产能耗', '原材料采购', '其他'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '吨 (t)',
+                    nameTextStyle: {
+                        color: '#666'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            type: 'dashed'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '当前排放',
+                        type: 'bar',
+                        data: [42, 35, 28, 15],
+                        itemStyle: {
+                            color: '#e74c3c'
+                        }
+                    },
+                    {
+                        name: '优化后排放',
+                        type: 'bar',
+                        data: [25, 28, 22, 15],
+                        itemStyle: {
+                            color: '#2ecc71'
+                        }
+                    }
+                ]
+            };
+
+            // 应用配置
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+
+        // 初始化虚拟工厂
+        function initVirtualFactory() {
+            // 初始化热点交互
+            const markers = document.querySelectorAll('.hotspot-marker');
+            const hotspotInfo = document.getElementById('hotspotInfo');
+
+            markers.forEach(marker => {
+                marker.addEventListener('click', function() {
+                    const info = this.getAttribute('data-info');
+                    const parts = info.split(':');
+                    const name = parts[0];
+                    const details = parts[1].split(',');
+
+                    hotspotInfo.innerHTML = `
+                        <h4>${name}</h4>
+                        <p>${details[0]}</p>
+                        <p>${details[1]}</p>
+                    `;
+
+                    hotspotInfo.style.display = 'block';
+                    hotspotInfo.style.left = (this.offsetLeft + 30) + 'px';
+                    hotspotInfo.style.top = this.offsetTop + 'px';
+
+                    // 更新工厂状态
+                    document.getElementById('hotspotName').textContent = name;
+                    document.getElementById('emissionRate').textContent = details[0].trim();
+                    document.getElementById('energyConsumption').textContent = details[1].split(' ')[1] + ' kW';
+                });
+            });
+
+            // 点击其他地方关闭信息框
+            document.getElementById('vrContainer').addEventListener('click', function(e) {
+                if (!e.target.classList.contains('hotspot-marker')) {
+                    hotspotInfo.style.display = 'none';
+                }
+            });
+
+            // 初始化工厂图表
+            initFactoryChart();
+        }
+
+        // 初始化工厂图表
+        function initFactoryChart() {
+            const chartDom = document.getElementById('factoryChart');
+            chartDom.innerHTML = '';
+
+            // 创建图表容器
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '100%';
+            chartDom.appendChild(chartContainer);
+
+            // 初始化ECharts实例
+            const myChart = echarts.init(chartContainer);
+
+            // 设置图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['熔炼车间', '装配线', '包装区', '仓储区'],
+                    textStyle: {
+                        color: '#333'
+                    },
+                    bottom: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '吨/小时 (t/h)',
+                    nameTextStyle: {
+                        color: '#666'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            type: 'dashed'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '熔炼车间',
+                        type: 'line',
+                        data: [1.8, 1.9, 2.1, 2.0, 1.7, 1.5],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#e74c3c'
+                        }
+                    },
+                    {
+                        name: '装配线',
+                        type: 'line',
+                        data: [0.9, 1.0, 1.2, 1.1, 1.0, 0.8],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#3498db'
+                        }
+                    },
+                    {
+                        name: '包装区',
+                        type: 'line',
+                        data: [0.6, 0.7, 0.8, 0.7, 0.6, 0.5],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#2ecc71'
+                        }
+                    },
+                    {
+                        name: '仓储区',
+                        type: 'line',
+                        data: [0.4, 0.5, 0.5, 0.4, 0.3, 0.3],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#f39c12'
+                        }
+                    }
+                ]
+            };
+
+            // 应用配置
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+
+        // 初始化供应链图表
+        function initSupplyChainChart() {
+            const chartDom = document.getElementById('supplyChainChart');
+            chartDom.innerHTML = '';
+
+            // 创建图表容器
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '100%';
+            chartDom.appendChild(chartContainer);
+
+            // 初始化ECharts实例
+            const myChart = echarts.init(chartContainer);
+
+            // 设置图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                legend: {
+                    orient: 'vertical',
+                    right: 10,
+                    top: 'center',
+                    textStyle: {
+                        color: '#333'
+                    }
+                },
+                series: [
+                    {
+                        name: '碳排放分布',
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: {
+                            borderRadius: 10,
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        label: {
+                            show: false,
+                            position: 'center'
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: '18',
+                                fontWeight: 'bold'
+                            }
+                        },
+                        labelLine: {
+                            show: false
+                        },
+                        data: [
+                            { value: 42, name: '原材料运输', itemStyle: { color: '#e74c3c' } },
+                            { value: 28, name: '包装材料', itemStyle: { color: '#f39c12' } },
+                            { value: 18, name: '仓储物流', itemStyle: { color: '#3498db' } },
+                            { value: 12, name: '其他', itemStyle: { color: '#2ecc71' } }
+                        ]
+                    }
+                ]
+            };
+
+            // 应用配置
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+
+        // 初始化碳价图表
+        function initCarbonPriceChart() {
+            const chartDom = document.getElementById('carbonPriceChart');
+            chartDom.innerHTML = '';
+
+            // 创建图表容器
+            const chartContainer = document.createElement('div');
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '100%';
+            chartDom.appendChild(chartContainer);
+
+            // 初始化ECharts实例
+            const myChart = echarts.init(chartContainer);
+
+            // 设置图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '元/吨',
+                    nameTextStyle: {
+                        color: '#666'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            type: 'dashed'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '碳价',
+                        type: 'line',
+                        data: [56.2, 58.5, 62.1, 64.3, 63.8, 65.2, 67.4, 68.1, 68.5, 69.2],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#2ecc71'
+                        },
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        itemStyle: {
+                            color: '#2ecc71'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(46, 204, 113, 0.5)' },
+                                { offset: 1, color: 'rgba(46, 204, 113, 0.1)' }
+                            ])
+                        }
+                    }
+                ]
+            };
+
+            // 应用配置
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+
+        // 初始化FAQ
+        function initFAQ() {
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question');
+                question.addEventListener('click', function() {
+                    item.classList.toggle('active');
+                });
+            });
+        }
+
+        // 初始化报告图表
+        function initReportCharts() {
+            // 报告饼图
+            const chart1 = echarts.init(document.getElementById('reportChart1'));
+            chart1.setOption({
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                series: [
+                    {
+                        name: '排放来源',
+                        type: 'pie',
+                        radius: '70%',
+                        data: [
+                            { value: 35, name: '生产制造', itemStyle: { color: '#e74c3c' } },
+                            { value: 28, name: '物流运输', itemStyle: { color: '#f39c12' } },
+                            { value: 20, name: '办公运营', itemStyle: { color: '#3498db' } },
+                            { value: 17, name: '其他', itemStyle: { color: '#2ecc71' } }
+                        ],
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        }
+                    }
+                ]
+            });
+
+            // 报告趋势图
+            const chart2 = echarts.init(document.getElementById('reportChart2'));
+            chart2.setOption({
+                tooltip: {
+                    trigger: 'axis'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['7月', '8月', '9月']
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '吨 (t)'
+                },
+                series: [
+                    {
+                        name: '碳排放',
+                        type: 'line',
+                        data: [0.85, 0.78, 0.67],
+                        smooth: true,
+                        lineStyle: {
+                            width: 3,
+                            color: '#3498db'
+                        },
+                        itemStyle: {
+                            color: '#3498db'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(52, 152, 219, 0.5)' },
+                                { offset: 1, color: 'rgba(52, 152, 219, 0.1)' }
+                            ])
+                        }
+                    }
+                ]
+            });
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                chart1.resize();
+                chart2.resize();
+            });
+        }
+
+        // 开始动画
+        function startAnimation() {
+            let year = 2010;
+            const animateBtn = document.getElementById('animate-btn');
+
+            animationInterval = setInterval(() => {
+                if (year > 2030) {
+                    clearInterval(animationInterval);
+                    animateBtn.innerHTML = '<i class="fas fa-play"></i> 动态演示';
+                    return;
+                }
+
+                document.getElementById('timeControl').value = year;
+                document.getElementById('currentYear').textContent = year;
+                updateHeatmap(year);
+
+                year++;
+            }, 500);
+        }
+
+        // 停止动画
+        function stopAnimation() {
+            clearInterval(animationInterval);
+        }
+
+        // 获取AI优化建议
+        function getAIRecommendation() {
+            const aiLoader = document.getElementById('aiLoader');
+            const aiResponse = document.getElementById('aiResponse');
+
+            // 显示加载状态
+            aiLoader.style.display = 'block';
+            aiResponse.style.display = 'none';
+
+            // 模拟AI处理延迟
+            setTimeout(() => {
+                const production = parseFloat(document.getElementById('production').value) || 1200;
+                const energy = parseFloat(document.getElementById('energy').value) || 45000;
+                const transport = parseFloat(document.getElementById('transport').value) || 250;
+
+                // 根据数据生成不同的建议
+                let recommendation = "";
+                let model = aiModels[Math.floor(Math.random() * aiModels.length)];
+
+                if (energy > 50000) {
+                    recommendation = `根据您的能耗数据(${energy}千瓦时)，${model}模型建议：\n\n1. 升级生产设备至节能型号，预计可降低能耗15%\n2. 优化生产流程，减少空闲设备运行时间\n3. 考虑使用可再生能源，如太阳能或风能`;
+                } else if (transport > 300) {
+                    recommendation = `根据您的运输距离(${transport}公里)，${model}模型建议：\n\n1. 优化物流路线，减少运输距离20%\n2. 考虑使用更环保的运输方式，如铁路运输\n3. 与本地供应商合作，缩短供应链距离`;
+                } else if (production < 1000) {
+                    recommendation = `根据您的生产数据(产量:${production}吨)，${model}模型建议：\n\n1. 实施精益生产管理，减少资源浪费\n2. 安装智能监测系统，实时优化能耗\n3. 提高设备利用率，减少单位产品碳排放`;
+                } else {
+                    recommendation = `根据您的生产数据(产量:${production}吨, 能耗:${energy}千瓦时, 运输:${transport}公里)，${model}模型建议：\n\n1. 实施精益生产管理，减少资源浪费\n2. 安装智能监测系统，实时优化能耗\n3. 参与碳交易市场，抵消部分碳排放`;
+                }
+
+                // 显示结果
+                aiLoader.style.display = 'none';
+                aiResponse.style.display = 'block';
+                aiResponse.innerHTML = `<p>${recommendation}</p>`;
+            }, 2000);
+        }
+
+        // 获取AI建议
+        function getAISuggestions() {
+            const strategyList = document.getElementById('strategyList');
+
+            // 清空现有策略
+            strategyList.innerHTML = '';
+
+            // 模拟AI生成策略
+            const strategies = [
+                {icon: 'check-circle', color: '#2ecc71', text: '优化物流路线：预计减排8%，投资回收期1年'},
+                {icon: 'check-circle', color: '#2ecc71', text: '引入太阳能供电：预计减排12%，投资回收期3年'},
+                {icon: 'lightbulb', color: '#f39c12', text: '升级生产设备：预计减排15%，投资回收期4年'},
+                {icon: 'check-circle', color: '#2ecc71', text: '使用可回收材料：预计减排10%，投资回收期2年'},
+                {icon: 'lightbulb', color: '#f39c12', text: '改进包装设计：预计减排5%，投资回收期1.5年'}
+            ];
+
+            // 添加新策略
+            strategies.forEach(strategy => {
+                const item = document.createElement('div');
+                item.className = 'strategy-item';
+                item.innerHTML = `
+                    <i class="fas fa-${strategy.icon}" style="color: ${strategy.color};"></i>
+                    ${strategy.text}
+                `;
+                strategyList.appendChild(item);
+            });
+
+            alert('AI已生成新的减排策略建议！');
+        }
+
+        // 生成PDF报告
+        function generatePDFReport() {
+            alert('PDF报告生成中...\n报告将在新标签页中打开');
+
+            // 在实际应用中，这里会调用jsPDF生成PDF
+            // 这里我们模拟一个简单的PDF生成过程
+            const pdfPreview = document.getElementById('pdfPreview');
+            pdfPreview.innerHTML = `
+                <div style="padding:20px;background:white;color:#333;height:100%;overflow:auto;">
+                    <h2 style="text-align:center;">碳足迹报告</h2>
+                    <h3 style="color:#2ecc71;">2023年第三季度</h3>
+                    <hr>
+                    <p><strong>报告生成日期：</strong> ${new Date().toLocaleDateString()}</p>
+                    <p><strong>总碳排放量：</strong> 2.3吨</p>
+                    <p><strong>同比变化：</strong> ↓ 12%</p>
+
+                    <h3 style="margin-top:20px;">排放分布</h3>
+                    <ul>
+                        <li>生产制造：35%</li>
+                        <li>物流运输：28%</li>
+                        <li>办公运营：20%</li>
+                        <li>其他：17%</li>
+                    </ul>
+
+                    <h3 style="margin-top:20px;">减排成效</h3>
+                    <p>本季度成功实施以下减排措施：</p>
+                    <ol>
+                        <li>设备升级：能源效率提升15%</li>
+                        <li>路线优化：运输排放减少12%</li>
+                        <li>节能设备：电力消耗下降8%</li>
+                    </ol>
+
+                    <h3 style="margin-top:20px;">AI优化建议</h3>
+                    <p>${document.getElementById('aiResponse').innerText || '暂无AI建议'}</p>
+
+                    <div style="margin-top:30px;text-align:center;">
+                        <p>--- 报告结束 ---</p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
